@@ -15,7 +15,7 @@
 
 &emsp;
 
-## Démo
+## Démonstration
 
 
 ![earth](/uploads/ca573e7ae93f778dbbc1b4bd2fd95e79/earth.gif)
