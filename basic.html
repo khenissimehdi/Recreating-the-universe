@@ -1,0 +1,85 @@
+<html>
+  <head>
+    <title>TP-WEBGL</title>
+    
+    <style>
+      body { margin: 0; background-color: black;}
+      canvas { width: 100%; height: 100% }
+    </style>
+  </head>
+  <body>
+    <script src="three.js"></script>
+    <script src="OrbitControls.js"></script>
+    <script>
+      
+      var scene = new THREE.Scene();
+       
+      //Create a new perspective camera
+      var camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 1, 1000);
+      camera.position.set(0,0,10);
+
+      //Create the WebGL renderer and set its size to the full dimensions of the screen.
+      var renderer = new THREE.WebGLRenderer({antialias: true});
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      var orbit = new THREE.OrbitControls( camera, renderer.domElement );
+      //Add the renderer canvas to the DOM.
+      document.body.appendChild(renderer.domElement);
+      //Create a new ambient light
+      var light = new THREE.AmbientLight( 0x888888 )
+      scene.add( light )
+
+      //Create a new directional light
+      var light = new THREE.DirectionalLight( 0xfdfcf0, 1 )
+      light.position.set(20,10,20)
+      scene.add( light )
+
+      //Create textures and material
+      var loader = new THREE.TextureLoader();
+      var textureearth =loader.load( "./images/earth.jpg");
+      var texturecloud =loader.load( "./images/cloud.jpg");
+      var texturestarfield = loader.load("./images/starfield.png")
+
+     //creating objects
+      var earthGeometry = new THREE.SphereGeometry( 5, 50, 50 );
+      var earthMaterial = new THREE.MeshPhongMaterial({
+        map: textureearth,
+        color: 0xaaaaaa,
+        specular: 0x333333,
+        shininess: 25
+        });
+      var cloudGeometry = new THREE.SphereGeometry( 5.2, 50, 50 );
+      var cloudMaterial = new THREE.MeshPhongMaterial({
+        map: texturecloud,
+        color: 0xaaaaaa,
+        specular: 0x333333,
+        transparent: true,
+        opacity: 0.1
+        });
+      var starGeometry = new THREE.SphereGeometry( 1000, 50, 50 );
+      var starMaterial = new THREE.MeshPhongMaterial({
+        map: texturestarfield,
+        side: THREE.DoubleSide,//to make the inside of the texture is the same as the outside
+         shininess: 0
+        });
+
+      //Build objects mesh using our geometry and material
+      var earth = new THREE.Mesh(earthGeometry, earthMaterial);
+      var cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
+      var star = new THREE.Mesh(starGeometry, starMaterial);
+
+//add the object mesh to the scene
+scene.add(earth);
+scene.add(cloud);
+scene.add(star);
+camera.position.z = 20;
+var render = function (actions) {
+  //earth.rotation.x += 0.01;
+  earth.rotation.y -= 0.0005; //move earth
+  cloud.rotation.y -= 0.00025;// move cloud 
+  renderer.render(scene, camera);
+  requestAnimationFrame( render );
+};
+render();
+    </script>
+  </body>
+</html>
