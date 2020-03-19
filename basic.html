@@ -36,13 +36,15 @@
       //Add the renderer canvas to the DOM.
       document.body.appendChild(renderer.domElement);
       //Create a new ambient light
-      var light = new THREE.AmbientLight( 0x888888 )
-      scene.add( light );
-
-      //Create a new directional light
-      var light = new THREE.DirectionalLight( 0xfdfcf0, 1 )
-      light.position.set(20,10,20)
-      scene.add( light )
+      var ambientLight = new THREE.AmbientLight(0x222222);
+        scene.add(ambientLight);
+    
+    var light = new THREE.PointLight(0xFFFFFF, 1, 0);
+        light.position.set(0, 0, 0);
+        scene.add(light);
+   /* var light2 = new THREE.PointLight(0xFFFFFF, 1, 0);
+        light2.position.set(20, 10, 20);
+        scene.add(light2);*/
       
       //Create textures and material
       var loader = new THREE.TextureLoader();
