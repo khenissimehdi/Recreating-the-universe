@@ -8,9 +8,112 @@
     </style>
   </head>
   <body>
-    <script src="three.js"></script>
-    <script src="OrbitControls.js"></script>
-    <script>
+    <!-- fragmentShader-->
+    <script id="fragmentShader" type="x-shader/x-fragment">
+
+			uniform float time;
+
+			uniform float fogDensity;
+			uniform vec3 fogColor;
+
+			uniform sampler2D texture1;
+			uniform sampler2D texture2;
+
+			varying vec2 vUv;
+
+			void main( void ) {
+
+				vec2 position = - 1.0 + 2.0 * vUv;
+
+				vec4 noise = texture2D( texture1, vUv );
+				vec2 T1 = vUv + vec2( 1.5, - 1.5 ) * time * 0.02;
+				vec2 T2 = vUv + vec2( - 0.5, 2.0 ) * time * 0.01;
+
+				T1.x += noise.x * 2.0;
+				T1.y += noise.y * 2.0;
+				T2.x -= noise.y * 0.2;
+				T2.y += noise.z * 0.2;
+
+				float p = texture2D( texture1, T1 * 2.0 ).a;
+
+				vec4 color = texture2D( texture2, T2 * 2.0 );
+				vec4 temp = color * ( vec4( p, p, p, p ) * 2.0 ) + ( color * color - 0.1 );
+
+				if( temp.r > 1.0 ) { temp.bg += clamp( temp.r - 2.0, 0.0, 100.0 ); }
+				if( temp.g > 1.0 ) { temp.rb += temp.g - 1.0; }
+				if( temp.b > 1.0 ) { temp.rg += temp.b - 1.0; }
+
+				gl_FragColor = temp;
+
+				float depth = gl_FragCoord.z / gl_FragCoord.w;
+				const float LOG2 = 1.442695;
+				float fogFactor = exp2( - fogDensity * fogDensity * depth * depth * LOG2 );
+				fogFactor = 1.0 - clamp( fogFactor, 0.0, 1.0 );
+
+				gl_FragColor = mix( gl_FragColor, vec4( fogColor, gl_FragColor.w ), fogFactor );
+
+			}
+
+		</script>
+    <!-- vertexShader-->
+		<script id="vertexShader" type="x-shader/x-vertex">
+
+			uniform vec2 uvScale;
+			varying vec2 vUv;
+
+			void main()
+			{
+
+				vUv = uvScale * uv;
+				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+				gl_Position = projectionMatrix * mvPosition;
+
+			}
+
+		</script>
+
+
+    <script type="module">
+      /*
+      * Imports 
+      */
+      import * as THREE from './dependency/three.module.js';
+      import OrbitControls from './dependency/OrbitControls.js';
+      import { EffectComposer } from './dependency/EffectComposer.js';
+      import { RenderPass } from './dependency/RenderPass.js';
+      import { FilmPass } from './dependency/FilmPass.js';
+      import { BloomPass } from './dependency/BloomPass.js';
+
+      //Time
+      var clock = new THREE.Clock();
+      //instantiating the TextureLoader
+      var textureLoader = new THREE.TextureLoader();
+      // initialising unifrom the fragment and vertex shaders
+      var uniforms = {
+
+        "fogDensity": { value: 0 },
+        "fogColor": { value: new THREE.Vector3( 0, 0, 0 ) },
+        "time": { value: 0.005 },
+        "uvScale": { value: new THREE.Vector2( 3.0, 1.0 ) },
+        "texture1": { value: textureLoader.load( './iamges/cloud.png' ) },
+        "texture2": { value: textureLoader.load( './images/lavatile.jpg' ) }
+
+      };
+
+      uniforms[ "texture1" ].value.wrapS = uniforms[ "texture1" ].value.wrapT = THREE.RepeatWrapping;
+      uniforms[ "texture2" ].value.wrapS = uniforms[ "texture2" ].value.wrapT = THREE.RepeatWrapping;
+      //the sun size
+      var size = 20;
+      //initialising the material LAVA
+      var material = new THREE.ShaderMaterial( {
+
+        uniforms: uniforms,
+        vertexShader: document.getElementById( 'vertexShader' ).textContent,
+        fragmentShader: document.getElementById( 'fragmentShader' ).textContent
+
+      } );
+     
+      //initialising the variables for the earth moon sun rotation
       var earthOrbitRadius = 50.9,
       earthOrbitAngle = 0,
       earthOrbitSpeed = 0.5,
@@ -18,10 +121,7 @@
       moonOrbitRadius = 10,
       moonOrbitAngle = 0,
       moonOrbitSpeed = 4;
-
-
-
-      var player = { height:1.8, speed:1, turnSpeed:Math.PI*0.02 };
+      //initialising the scean
       var scene = new THREE.Scene();
        
       //Create a new perspective camera
@@ -30,21 +130,22 @@
 
       //Create the WebGL renderer and set its size to the full dimensions of the screen.
       var renderer = new THREE.WebGLRenderer({antialias: true});
+      renderer.setPixelRatio( window.devicePixelRatio );
       renderer.setSize(window.innerWidth, window.innerHeight);
-      var orbit = new THREE.OrbitControls( camera, renderer.domElement );
+      renderer.autoClear = false;
+    //initialising the orbit controls
+    const orbit = new OrbitControls( camera, renderer.domElement );
      
       //Add the renderer canvas to the DOM.
       document.body.appendChild(renderer.domElement);
       //Create a new ambient light
-      var ambientLight = new THREE.AmbientLight(0x222222);
+      var ambientLight = new THREE.AmbientLight( 0x222222 );
         scene.add(ambientLight);
     
     var light = new THREE.PointLight(0xFFFFFF, 1, 0);
         light.position.set(0, 0, 0);
         scene.add(light);
-   /* var light2 = new THREE.PointLight(0xFFFFFF, 1, 0);
-        light2.position.set(20, 10, 20);
-        scene.add(light2);*/
+   
       
       //Create textures and material
       var loader = new THREE.TextureLoader();
@@ -53,9 +154,9 @@
       var texturestarfield = loader.load("./images/starfield.png");
       var texturemoon = loader.load("./images/moon.jpg");
       var texturesolar = loader.load("./images/solarsys.jpg");
-      var texturesun = loader.load("./images/sun.jpg");
+      //var texturesun = loader.load("./images/sun.jpg");
 
-     //creating objects
+     //creating objects geaometry + material
       var earthGeometry = new THREE.SphereGeometry( 5, 50, 50 );
       var earthMaterial = new THREE.MeshPhongMaterial({
         map: textureearth,
@@ -63,13 +164,11 @@
         specular: 0x333333,
         shininess: 25
         });
-        var sunGeometry = new THREE.SphereGeometry( 20, 50, 50 );
-      var sunMaterial = new THREE.MeshPhongMaterial({
-        map: texturesun,
-        color: 0xaaaaaa,
-        specular: 0x333333,
-        shininess: 50
-        });
+        
+      var sunGeometry = new THREE.SphereGeometry( size, 50, 50 );
+ 
+       
+        
       var cloudGeometry = new THREE.SphereGeometry( 5.2, 50, 50 );
       var cloudMaterial = new THREE.MeshPhongMaterial({
         map: texturecloud,
@@ -100,7 +199,8 @@
         shininess: 25
         
         });
-        theEarthAndMoon = new THREE.Object3D();
+        //creating a 3d object for both the earht and the moon
+var theEarthAndMoon = new THREE.Object3D();
         scene.add(theEarthAndMoon);
         
 
@@ -114,11 +214,17 @@
       theEarthAndMoon.add(moon);
       //moon.position.set(35,0,0);
       var solar = new THREE.Mesh(solarGeometry, solarMaterial);
-      var sun = new THREE.Mesh(sunGeometry, sunMaterial);
-      //sun.position.set(-50,0,0);
+      var sun = new THREE.Mesh(sunGeometry, material);
+      sun.rotation.x = 0.3;
+      var renderModel = new RenderPass( scene, camera );
+			var effectBloom = new BloomPass( 0.8 );
+      var effectFilm = new FilmPass( 0.35, 0.95, 2048, false );
+        var composer = new EffectComposer( renderer );
+
+				composer.addPass( renderModel );
+				composer.addPass( effectBloom );
+			composer.addPass( effectFilm );
       
-
-
       //Build objects mesh using our geometry and material
       
      
@@ -127,10 +233,8 @@
       star1.position.set(300,0,0);
       
 //add the object mesh to the scene
-//scene.add(earth);
-//scene.add(cloud);
+
 scene.add(star);
-//scene.add(moon);
 scene.add(solar);
 scene.add(sun);
 scene.add(star1);
@@ -141,110 +245,44 @@ var render = function (actions) {
  
   earth.rotation.y -= 0.0005; //move earth
   cloud.rotation.y -= 0.00025;// move cloud 
- 
+ //earht moon sun rotation
   earthOrbitAngle += earthOrbitSpeed; 
-    var radians = earthOrbitAngle * Math.PI / 180;
-    
-    theEarthAndMoon.position.x = Math.cos(radians) * earthOrbitRadius;
-    theEarthAndMoon.position.z = Math.sin(radians) * earthOrbitRadius;
-    
-    //run the Moon's orbit around the Earth
-    moonOrbitAngle += moonOrbitSpeed; 
-    var moonRadians = moonOrbitAngle * Math.PI / 180;
-    
-    moon.position.x = Math.cos(moonRadians) * moonOrbitRadius;
-    moon.position.z = Math.sin(moonRadians) * moonOrbitRadius;
+  var radians = earthOrbitAngle * Math.PI / 180;
+  theEarthAndMoon.position.x = Math.cos(radians) * earthOrbitRadius;
+  theEarthAndMoon.position.z = Math.sin(radians) * earthOrbitRadius;
 
-  
+  moonOrbitAngle += moonOrbitSpeed; 
+  var moonRadians = moonOrbitAngle * Math.PI / 180;
+  moon.position.x = Math.cos(moonRadians) * moonOrbitRadius;
+  moon.position.z = Math.sin(moonRadians) * moonOrbitRadius;
+  //material animation
+  var delta = 5 * clock.getDelta();
 
-  renderer.render(scene, camera);
+	uniforms[ "time" ].value += 0.2 * delta;
+
+	sun.rotation.y += 0.0125 * delta;
+	sun.rotation.x += 0.05 * delta;
+
+  renderer.clear();
+	composer.render( 0.01 );
   requestAnimationFrame( render );
 };
 window.addEventListener('keydown',(keyCode) =>
     {
-      var code = keyCode.key;
-
+     var code = keyCode.key;
       var factor = 0.9;
-     
-      
-
       if (code == '+'){
-        
-
       camera.position.x *= factor;
       camera.position.y *= factor;
       camera.position.z *= factor;
-
       }
-      else if (code == '-'){
-        //alert(addx)
-        
+      else if (code == '-'){     
         console.log(camera.position.x,camera.position.y,camera.position.z);
         camera.position.x /= factor;
         camera.position.y /= factor;
         camera.position.z /= factor;
-    
           }
-    if( code == '8')
-    {
-      
-      camera.position.x -= Math.sin(camera.rotation.y) * player.speed; // sin is convert to 
-      camera.position.z -= -Math.cos(camera.rotation.y) * player.speed;
-      
-	}
-    
-    else if (code == '2' )
-    {
-      camera.position.x += Math.sin(camera.rotation.y) * player.speed;
-		  camera.position.z   += -Math.cos(camera.rotation.y) * player.speed;
-       
-    }
-    else if (code == '4' )
-    {
-      camera.position.x += Math.sin(camera.rotation.y + Math.PI/2) * player.speed;
-		camera.position.z   += -Math.cos(camera.rotation.y + Math.PI/2) * player.speed;
-    }
-    else if (code == '6' )
-    {
-    camera.position.x += Math.sin(camera.rotation.y - Math.PI/2) * player.speed;
-		camera.position.z  += -Math.cos(camera.rotation.y - Math.PI/2) * player.speed;
-    }
-    else if (code == '7' )
-    {
-      camera.rotation.y -= player.turnSpeed;
-      
-      
-    }
-    else if (code == '9' )
-    {
-      camera.rotation.y += player.turnSpeed;
-    }
-    else if (code == '1' )
-    {
-      camera.rotation.x -= player.turnSpeed;
-      
-      
-    }
-    else if (code == '3' )
-    {
-      camera.rotation.x += player.turnSpeed;
-    }
-    else if (code == '0' )
-    {
-      camera.position.set(0, 0, -30);
-
-    }
-    else if (code == '.' )
-    {
-      camera.position.set(0, player.height, -5);
-      camera.lookAt(new THREE.Vector3(0,player.height,0));
-
-    }
-
-     
-     
-    }
-    )
+           })
 
 render();
 
